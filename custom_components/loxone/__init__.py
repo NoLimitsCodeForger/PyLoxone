@@ -12,6 +12,7 @@ import sys
 import traceback
 from functools import cached_property
 
+
 import homeassistant.components.group as group
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
@@ -50,6 +51,7 @@ from .const import (AES_KEY_SIZE, ATTR_AREA_CREATE, ATTR_CODE, ATTR_COMMAND,
 from .helpers import get_miniserver_type
 from .miniserver import (MiniServer, get_miniserver_from_config,
                          get_miniserver_from_hass)
+from .service.service_hub import ServiceHub
 
 REQUIREMENTS = ["websockets", "pycryptodome", "numpy"]
 
@@ -104,7 +106,7 @@ async def async_reload_entry(hass, config_entry) -> None:
     """Reload a config entry."""
     _LOGGER.debug("Starting reload")
     await async_unload_entry(hass, entry)  # Unload the entry
-    await async_setup_entry(hass, entry)  # Re-setup the entry    
+    await async_setup_entry(hass, entry)  # Re-setup the entry
 
 
 async def async_setup(hass, config):
@@ -145,7 +147,7 @@ async def remove_unused_devices(hass, config_entry):
                 device_registry.async_remove_device(device_id)
 
 async def async_migrate_entry(hass, config_entry):
-    
+
     if config_entry.version == 1:
         new = {**config_entry.options, CONF_LIGHTCONTROLLER_SUBCONTROLS_GEN: True}
         config_entry.options = {**new}
@@ -226,6 +228,7 @@ async def async_setup_entry(hass, config_entry):
     if not config_entry.options:
         await async_set_options(hass, config_entry)
 
+    service_hub = ServiceHub(hass, config_entry)
     miniserver = MiniServer(hass, config_entry)
 
     if not await miniserver.async_setup():
@@ -246,6 +249,8 @@ async def async_setup_entry(hass, config_entry):
     if setup_tasks:
         await asyncio.wait(setup_tasks)
 
+    # Adding labels after entities are loaded
+    await service_hub.label_service.update_labels_from_loxone_cat()
     config_entry.add_update_listener(async_config_entry_updated)
 
     new_data = _UNDEF
@@ -485,7 +490,7 @@ async def async_setup_entry(hass, config_entry):
 
     #Fire start
     await start_event(None)
-    
+
     #hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, start_event)
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, stop_event)
     hass.bus.async_listen_once(EVENT_COMPONENT_LOADED, loxone_discovered)

@@ -13,7 +13,7 @@ from homeassistant.const import (CONF_HOST, CONF_PASSWORD, CONF_PORT,
                                  CONF_USERNAME)
 from homeassistant.core import callback
 
-from .const import (CONF_LIGHTCONTROLLER_SUBCONTROLS_GEN, CONF_SCENE_GEN,
+from .const import (CONF_LABEL_GEN, CONF_LIGHTCONTROLLER_SUBCONTROLS_GEN, CONF_SCENE_GEN,
                     CONF_SCENE_GEN_DELAY, DEFAULT_DELAY_SCENE, DEFAULT_IP,
                     DEFAULT_PORT, DOMAIN)
 
@@ -80,6 +80,7 @@ class LoxoneOptionsFlowHandler(config_entries.OptionsFlow):
         gen_scene_delay = self.config_entry.options.get(
             CONF_SCENE_GEN_DELAY, DEFAULT_DELAY_SCENE
         )
+        gen_labels = self.config_entry.options.get(CONF_LABEL_GEN, True)
         gen_subcontrols = self.config_entry.options.get(
             CONF_LIGHTCONTROLLER_SUBCONTROLS_GEN, False
         )
@@ -92,6 +93,7 @@ class LoxoneOptionsFlowHandler(config_entries.OptionsFlow):
         options[vol.Required(CONF_PORT, default=port)] = int
         options[vol.Required(CONF_SCENE_GEN, default=gen_scenes)] = bool
         options[vol.Required(CONF_SCENE_GEN_DELAY, default=gen_scene_delay)] = int
+        options[vol.Required(CONF_LABEL_GEN, default=gen_labels)] = bool
         options[
             vol.Required(CONF_LIGHTCONTROLLER_SUBCONTROLS_GEN, default=gen_subcontrols)
         ] = bool
