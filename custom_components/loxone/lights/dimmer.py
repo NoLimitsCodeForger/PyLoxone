@@ -1,7 +1,7 @@
 from functools import cached_property
 
 from homeassistant.components.light import (ATTR_BRIGHTNESS, ColorMode,
-                                            LightEntity)
+                                            LightEntity, ENTITY_ID_FORMAT)
 from homeassistant.const import STATE_UNKNOWN
 from homeassistant.helpers.entity import DeviceInfo
 
@@ -13,6 +13,7 @@ from ..helpers import (get_or_create_device, hass_to_lox, lox2hass_mapped,
 
 class LoxoneDimmer(LoxoneEntity, LightEntity):
     """Representation of a Loxone Dimmer."""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     _attr_color_mode = ColorMode.BRIGHTNESS
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
@@ -31,19 +32,9 @@ class LoxoneDimmer(LoxoneEntity, LightEntity):
         self._min = STATE_UNKNOWN
         self._max = STATE_UNKNOWN
         self._async_add_devices = kwargs["async_add_devices"]
-        self._light_controller_id = kwargs.get("lightcontroller_id", None)
-        self._light_controller_name = kwargs.get("lightcontroller_name", None)
 
-        self._name = self._attr_name
-        if self._light_controller_name:
-            self._attr_name = f"{self._light_controller_name}-{self._attr_name}"
-
-        if self._light_controller_id:
-            self.type = "LightControllerV2"
-            self._attr_device_info = get_or_create_device(
-                self._light_controller_id, self.name, self.type, self.room
-            )
-        else:
+        # In most common cases, the device is inherited from the parent LightController
+        if not self._attr_device_info:
             self.type = "Dimmer"
             self._attr_device_info = get_or_create_device(
                 self.unique_id, self.name, self.type, self.room
@@ -56,8 +47,8 @@ class LoxoneDimmer(LoxoneEntity, LightEntity):
             "device_type": self.type,
             "platform": "loxone",
         }
-        if self._light_controller_name:
-            state_attributes.update({"light_controller": self._light_controller_name})
+        if self.parent_name:
+            state_attributes.update({"light_controller": self.parent_name})
 
         self._attr_extra_state_attributes = state_attributes
 
@@ -125,6 +116,8 @@ class LoxoneDimmer(LoxoneEntity, LightEntity):
 
 
 class EIBDimmer(LoxoneDimmer):
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if self._light_controller_id:

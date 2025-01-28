@@ -5,7 +5,7 @@ import homeassistant.util.color as color_util
 from homeassistant.components.light import (ATTR_BRIGHTNESS,
                                             ATTR_COLOR_TEMP_KELVIN,
                                             ATTR_HS_COLOR, ColorMode,
-                                            LightEntity)
+                                            LightEntity, ENTITY_ID_FORMAT)
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from .. import LoxoneEntity
@@ -16,6 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class RGBColorPicker(LoxoneEntity, LightEntity):
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
     __color_mode_reported = True
     _attr_max_color_temp_kelvin = 6500
     _attr_min_color_temp_kelvin = 2000
@@ -34,19 +35,9 @@ class RGBColorPicker(LoxoneEntity, LightEntity):
         self._sequence_uuid = kwargs.get("states", {}).get("sequence", None)
 
         self._async_add_devices = kwargs["async_add_devices"]
-        self._light_controller_id = kwargs.get("lightcontroller_id", None)
-        self._light_controller_name = kwargs.get("lightcontroller_name", None)
 
-        self._name = self._attr_name
-        if self._light_controller_name:
-            self._attr_name = f"{self._light_controller_name}-{self._attr_name}"
-
-        if self._light_controller_id:
-            self.type = "LightControllerV2"
-            self._attr_device_info = get_or_create_device(
-                self._light_controller_id, self.name, self.type, self.room
-            )
-        else:
+        # In most common cases, the device is inherited from the parent LightController
+        if not self._attr_device_info:
             self.type = "ColorPickerV2"
             self._attr_device_info = get_or_create_device(
                 self._light_controller_id, self.name, self.type, self.room
@@ -155,16 +146,12 @@ class RGBColorPicker(LoxoneEntity, LightEntity):
 
 class LumiTech(RGBColorPicker):
     """Representation of a Loxone LumiTech Dimmer."""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         """Initialize the LumiTech."""
-        if self._light_controller_id:
-            self.type = "LightControllerV2"
-            self._attr_device_info = get_or_create_device(
-                self._light_controller_id, self.name, self.type, self.room
-            )
-        else:
+        if not self._attr_device_info:
             self.type = "LumiTech"
             self._attr_device_info = get_or_create_device(
                 self.unique_id, self.name, self.type, self.room

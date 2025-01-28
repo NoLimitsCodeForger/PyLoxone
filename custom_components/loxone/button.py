@@ -9,7 +9,7 @@ import logging
 from functools import cached_property
 from typing import final
 
-from homeassistant.components.button import ButtonEntity
+from homeassistant.components.button import ButtonEntity, ENTITY_ID_FORMAT
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
@@ -21,6 +21,7 @@ from . import LoxoneEntity
 from .const import DOMAIN, SENDDOMAIN
 from .helpers import add_room_and_cat_to_value_values, get_all
 from .miniserver import get_miniserver_from_hass
+from .service.service_hub import add_service_hub_to_entity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ async def async_setup_entry(
 
     for button_entity in get_all(loxconfig, ["Pushbutton"]):
         button_entity = add_room_and_cat_to_value_values(loxconfig, button_entity)
+        button_entity = add_service_hub_to_entity(hass, button_entity)
         entities.append(LoxoneButton(**button_entity))
 
     async_add_entities(entities)
@@ -54,6 +56,7 @@ async def async_setup_entry(
 
 class LoxoneButton(LoxoneEntity, ButtonEntity):
     """Representation of a Loxone pushbutton."""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     __last_pressed_isoformat: str | None = None
     _attr_unique_id: str | None = None

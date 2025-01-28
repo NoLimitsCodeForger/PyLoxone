@@ -15,7 +15,9 @@
           "generate_scenes": "generate scenes",
           "generate_lightcontroller_subcontrols": "generate subcontrols for lightcontrollerV2",
           "generate_scenes_delay": "Delay for the scene generation if enabled",
-          "generate_labels": "Generate labels from Loxone category"
+          "generate_labels": "Generate labels from Loxone category",
+          "entity_name_pattern": "Naming pattern for entities (room, category, name).",
+          "entity_id_pattern": "Naming pattern for entity IDs (room, category, name)."
         }
       }
     }
@@ -31,7 +33,9 @@
           "generate_scenes": "Generate scenes",
           "generate_lightcontroller_subcontrols": "Generate subcontrols for lightcontrollerV2",
           "generate_scenes_delay": "Delay for the scene generation if enabled",
-          "generate_labels": "Generate labels from Loxone category"
+          "generate_labels": "Generate labels from Loxone category",
+          "entity_name_pattern": "Naming pattern for entities (room, category, name).",
+          "entity_id_pattern": "Naming pattern for entity IDs (room, category, name)."
         },
         "description": "PyLoxone edit settings:",
         "title": "PyLoxone settings"

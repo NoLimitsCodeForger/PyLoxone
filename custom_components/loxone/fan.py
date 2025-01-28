@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.components.fan import FanEntity, FanEntityFeature
+from homeassistant.components.fan import FanEntity, FanEntityFeature, ENTITY_ID_FORMAT
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
@@ -19,6 +19,7 @@ from .helpers import (add_room_and_cat_to_value_values, get_all,
                       get_or_create_device)
 from .miniserver import get_miniserver_from_hass
 from .sensor import LoxoneSensor
+from .service.service_hub import add_service_hub_to_entity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,6 +58,7 @@ async def async_setup_entry(
 
     for fan in get_all(loxconfig, "Ventilation"):
         fan = add_room_and_cat_to_value_values(loxconfig, fan)
+        fan = add_service_hub_to_entity(hass, fan)
         fan.update(
             {
                 "type": "ventilation",
@@ -77,6 +79,7 @@ async def async_setup_entry(
                 "async_add_devices": async_add_entities,
                 "config_entry": config_entry,
             }
+            presence = add_service_hub_to_entity(hass, presence)
             entities.append(LoxoneDigitalSensor(**presence))
         if fan["details"]["hasIndoorHumidity"] and "humidityIndoor" in fan["states"]:
             humidity = {
@@ -91,6 +94,7 @@ async def async_setup_entry(
                 "async_add_devices": async_add_entities,
                 "config_entry": config_entry,
             }
+            humidity = add_service_hub_to_entity(hass, humidity)
             entities.append(LoxoneSensor(**humidity))
         if fan["details"]["hasAirQuality"] and "airQualityIndoor" in fan["states"]:
             air_quality = {
@@ -105,6 +109,7 @@ async def async_setup_entry(
                 "async_add_devices": async_add_entities,
                 "config_entry": config_entry,
             }
+            air_quality = add_service_hub_to_entity(hass, air_quality)
             entities.append(LoxoneSensor(**air_quality))
         # if "temperatureIndoor" in fan["states"]:
         #     temperature = {
@@ -133,6 +138,7 @@ async def async_setup_entry(
                 "async_add_devices": async_add_entities,
                 "config_entry": config_entry,
             }
+            temperature = add_service_hub_to_entity(hass, temperature)
             entities.append(LoxoneSensor(**temperature))
 
         entities.append(LoxoneVentilation(**fan))
@@ -142,6 +148,7 @@ async def async_setup_entry(
 
 class LoxoneVentilation(LoxoneEntity, FanEntity):
     """Representation of a ventilation Loxone device."""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     def __init__(self, **kwargs) -> None:
         """Initialize the fan."""

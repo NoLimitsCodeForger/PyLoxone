@@ -7,7 +7,7 @@ https://github.com/JoDehli/PyLoxone
 
 import logging
 
-from homeassistant.components.switch import SwitchEntity
+from homeassistant.components.switch import SwitchEntity, ENTITY_ID_FORMAT
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
@@ -19,6 +19,7 @@ from .const import SENDDOMAIN
 from .helpers import (add_room_and_cat_to_value_values, get_all,
                       get_or_create_device)
 from .miniserver import get_miniserver_from_hass
+from .service.service_hub import add_service_hub_to_entity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ async def async_setup_entry(
     for switch_entity in get_all(loxconfig, ["Switch", "TimedSwitch", "Intercom"]):
 
         switch_entity = add_room_and_cat_to_value_values(loxconfig, switch_entity)
+        switch_entity = add_service_hub_to_entity(hass, switch_entity)
 
         if switch_entity["type"] in ["Switch"]:
             new_switch = LoxoneSwitch(**switch_entity)
@@ -62,6 +64,7 @@ async def async_setup_entry(
 
                     _ = subcontol
                     _ = add_room_and_cat_to_value_values(loxconfig, _)
+                    _ = add_service_hub_to_entity(hass, _)
                     _.update(
                         {
                             "name": "{} - {}".format(
@@ -78,6 +81,7 @@ async def async_setup_entry(
 
 class LoxoneTimedSwitch(LoxoneEntity, SwitchEntity):
     """Representation of a loxone switch"""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -181,6 +185,7 @@ class LoxoneTimedSwitch(LoxoneEntity, SwitchEntity):
 
 class LoxoneSwitch(LoxoneEntity, SwitchEntity):
     """Representation of a loxone switch"""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -251,6 +256,8 @@ class LoxoneSwitch(LoxoneEntity, SwitchEntity):
 
 
 class LoxoneIntercomSubControl(LoxoneSwitch):
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
+
     def __init__(self, **kwargs):
         LoxoneSwitch.__init__(self, **kwargs)
 

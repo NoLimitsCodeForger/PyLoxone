@@ -15,7 +15,8 @@ import voluptuous as vol
 from homeassistant.components.sensor import (CONF_STATE_CLASS, PLATFORM_SCHEMA,
                                              SensorDeviceClass, SensorEntity,
                                              SensorEntityDescription,
-                                             SensorStateClass)
+                                             SensorStateClass,
+                                             ENTITY_ID_FORMAT)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (CONF_DEVICE_CLASS, CONF_NAME,
                                  CONF_UNIT_OF_MEASUREMENT, CONF_VALUE_TEMPLATE,
@@ -33,6 +34,7 @@ from .const import CONF_ACTIONID, DOMAIN, SENDDOMAIN
 from .helpers import (add_room_and_cat_to_value_values, get_all,
                       get_or_create_device)
 from .miniserver import get_miniserver_from_hass
+from .service.service_hub import add_service_hub_to_entity
 
 NEW_SENSOR = "sensors"
 
@@ -172,11 +174,13 @@ async def async_setup_entry(
 
     for sensor in get_all(loxconfig, "InfoOnlyAnalog"):
         sensor = add_room_and_cat_to_value_values(loxconfig, sensor)
+        sensor = add_service_hub_to_entity(hass, sensor)
         sensor.update({"type": "analog"})
         entities.append(LoxoneSensor(**sensor))
 
     for sensor in get_all(loxconfig, "TextInput"):
         sensor = add_room_and_cat_to_value_values(loxconfig, sensor)
+        sensor = add_service_hub_to_entity(hass, sensor)
         entities.append(LoxoneTextSensor(**sensor))
 
     @callback
@@ -193,6 +197,8 @@ async def async_setup_entry(
 
 
 class LoxoneCustomSensor(LoxoneEntity, SensorEntity):
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
+
     def __init__(self, **kwargs):
         self._attr_name = kwargs.pop("name", None)
         self._attr_state_class = kwargs.pop("state_class", None)
@@ -253,6 +259,7 @@ class LoxoneVersionSensor(LoxoneEntity, SensorEntity):
 
 class LoxoneTextSensor(LoxoneEntity, SensorEntity):
     """Representation of a Text Sensor."""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -293,6 +300,7 @@ class LoxoneTextSensor(LoxoneEntity, SensorEntity):
 
 class LoxoneSensor(LoxoneEntity, SensorEntity):
     """Representation of a Loxone Sensor."""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

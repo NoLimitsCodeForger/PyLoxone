@@ -7,7 +7,7 @@ https://github.com/JoDehli/PyLoxone
 
 import logging
 
-from homeassistant.components.text import TextEntity
+from homeassistant.components.text import TextEntity, ENTITY_ID_FORMAT
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
@@ -19,6 +19,7 @@ from .const import SENDDOMAIN
 from .helpers import (add_room_and_cat_to_value_values, get_all,
                       get_or_create_device)
 from .miniserver import get_miniserver_from_hass
+from .service.service_hub import add_service_hub_to_entity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ async def async_setup_entry(
     for text_entity in get_all(loxconfig, ["TextInput"]):
 
         text_entity = add_room_and_cat_to_value_values(loxconfig, text_entity)
+        text_entity = add_service_hub_to_entity(hass, text_entity)
         text_entity.update(
             {
                 "config_entry": config_entry,
@@ -59,6 +61,7 @@ async def async_setup_entry(
 
 class LoxoneText(LoxoneEntity, TextEntity):
     """Representation of a loxone text"""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

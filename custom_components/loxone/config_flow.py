@@ -15,7 +15,8 @@ from homeassistant.core import callback
 
 from .const import (CONF_LABEL_GEN, CONF_LIGHTCONTROLLER_SUBCONTROLS_GEN, CONF_SCENE_GEN,
                     CONF_SCENE_GEN_DELAY, DEFAULT_DELAY_SCENE, DEFAULT_IP,
-                    DEFAULT_PORT, DOMAIN)
+                    DEFAULT_PORT, DOMAIN, CONF_ENTITY_NAME_PATTERN, CONF_ENTITY_ID_PATTERN,
+                    DEFAULT_ENTITY_NAME_PATTERN, DEFAULT_ENTITY_ID_PATTERN)
 
 LOXONE_SCHEMA = vol.Schema(
     {
@@ -25,7 +26,11 @@ LOXONE_SCHEMA = vol.Schema(
         vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
         vol.Required(CONF_SCENE_GEN, default=True): bool,
         vol.Optional(CONF_SCENE_GEN_DELAY, default=DEFAULT_DELAY_SCENE): int,
+        vol.Required(CONF_LABEL_GEN, default=True): bool,
         vol.Required(CONF_LIGHTCONTROLLER_SUBCONTROLS_GEN, default=False): bool,
+        vol.Optional(CONF_SCENE_GEN_DELAY, default=DEFAULT_DELAY_SCENE): int,
+        vol.Optional(CONF_ENTITY_NAME_PATTERN, default=DEFAULT_ENTITY_NAME_PATTERN): str,
+        vol.Optional(CONF_ENTITY_ID_PATTERN, default=DEFAULT_ENTITY_ID_PATTERN): str,
     }
 )
 
@@ -84,6 +89,8 @@ class LoxoneOptionsFlowHandler(config_entries.OptionsFlow):
         gen_subcontrols = self.config_entry.options.get(
             CONF_LIGHTCONTROLLER_SUBCONTROLS_GEN, False
         )
+        entity_name = self.config_entry.options.get(CONF_ENTITY_NAME_PATTERN, "")
+        entity_id = self.config_entry.options.get(CONF_ENTITY_ID_PATTERN, "")
 
         options = OrderedDict()
 
@@ -97,6 +104,9 @@ class LoxoneOptionsFlowHandler(config_entries.OptionsFlow):
         options[
             vol.Required(CONF_LIGHTCONTROLLER_SUBCONTROLS_GEN, default=gen_subcontrols)
         ] = bool
+        options[vol.Required(CONF_ENTITY_NAME_PATTERN, default=entity_name)] = str
+        options[vol.Required(CONF_ENTITY_ID_PATTERN, default=entity_id)] = str
+
 
         return self.async_show_form(
             step_id="init",

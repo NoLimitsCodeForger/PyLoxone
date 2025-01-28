@@ -8,7 +8,7 @@ https://github.com/JoDehli/PyLoxone
 import logging
 from abc import ABC
 
-from homeassistant.components.climate import PLATFORM_SCHEMA, ClimateEntity
+from homeassistant.components.climate import PLATFORM_SCHEMA, ClimateEntity, ENTITY_ID_FORMAT
 from homeassistant.components.climate.const import (ClimateEntityFeature,
                                                     HVACAction, HVACMode)
 from homeassistant.config_entries import ConfigEntry
@@ -23,6 +23,7 @@ from .const import CONF_HVAC_AUTO_MODE, SENDDOMAIN
 from .helpers import (add_room_and_cat_to_value_values, get_all,
                       get_or_create_device)
 from .miniserver import get_miniserver_from_hass
+from .service.service_hub import add_service_hub_to_entity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -75,6 +76,7 @@ async def async_setup_entry(
 
     for climate in get_all(loxconfig, "IRoomControllerV2"):
         climate = add_room_and_cat_to_value_values(loxconfig, climate)
+        climate = add_service_hub_to_entity(hass, climate)
         climate.update(
             {
                 "hass": hass,
@@ -85,6 +87,7 @@ async def async_setup_entry(
 
     for accontrol in get_all(loxconfig, "AcControl"):
         accontrol = add_room_and_cat_to_value_values(loxconfig, accontrol)
+        accontrol = add_service_hub_to_entity(hass, accontrol)
         accontrol.update(
             {
                 "hass": hass,
@@ -97,6 +100,7 @@ async def async_setup_entry(
 
 class LoxoneRoomControllerV2(LoxoneEntity, ClimateEntity, ABC):
     """Loxone room controller"""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     attr_supported_features = (
         ClimateEntityFeature.PRESET_MODE
@@ -295,6 +299,7 @@ class LoxoneRoomControllerV2(LoxoneEntity, ClimateEntity, ABC):
 # ------------------ AC CONTROL --------------------------------------------------------
 class LoxoneAcControl(LoxoneEntity, ClimateEntity, ABC):
     """Representation of a ACControl Loxone device."""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     attr_supported_features = (
         ClimateEntityFeature.PRESET_MODE

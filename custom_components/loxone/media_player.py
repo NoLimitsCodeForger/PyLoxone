@@ -7,7 +7,8 @@ import logging
 from homeassistant.components.media_player import (MediaPlayerDeviceClass,
                                                    MediaPlayerEntity,
                                                    MediaPlayerEntityFeature,
-                                                   MediaPlayerState)
+                                                   MediaPlayerState,
+                                                   ENTITY_ID_FORMAT)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -18,6 +19,7 @@ from .const import DEFAULT_AUDIO_ZONE_V2_PLAY_STATE, SENDDOMAIN
 from .helpers import (add_room_and_cat_to_value_values, get_all,
                       get_or_create_device)
 from .miniserver import get_miniserver_from_hass
+from .service.service_hub import add_service_hub_to_entity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,6 +61,7 @@ async def async_setup_entry(
 
     for audioZone in get_all(loxconfig, "AudioZoneV2"):
         audioZone = add_room_and_cat_to_value_values(loxconfig, audioZone)
+        audioZone = add_service_hub_to_entity(hass, audioZone)
         audioZone.update(
             {
                 "hass": hass,
@@ -85,6 +88,7 @@ def play_state_to_media_player_state(play_state: int) -> MediaPlayerState:
 
 class LoxoneAudioZoneV2(LoxoneEntity, MediaPlayerEntity):
     """Representation of a AudioZoneV2 Loxone device."""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     def __init__(self, **kwargs):
         _LOGGER.debug(f"Input AudioZoneV2: {kwargs}")

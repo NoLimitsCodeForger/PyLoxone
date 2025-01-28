@@ -2,7 +2,7 @@ from collections import OrderedDict
 from functools import cached_property
 
 from homeassistant.components.light import (ATTR_EFFECT, ColorMode,
-                                            LightEntity, LightEntityFeature)
+                                            LightEntity, LightEntityFeature, ENTITY_ID_FORMAT)
 from homeassistant.const import STATE_UNKNOWN
 from homeassistant.helpers.entity import DeviceInfo
 
@@ -12,6 +12,7 @@ from ..helpers import get_or_create_device
 
 class LoxoneLightControllerV2(LoxoneEntity, LightEntity):
     """Representation of a Light Controller V2."""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     _attr_supported_features = LightEntityFeature.EFFECT
     _attr_color_mode = ColorMode.ONOFF
@@ -127,7 +128,7 @@ class LoxoneLightControllerV2(LoxoneEntity, LightEntity):
 
     async def event_handler(self, event):
         request_update = False
-        
+
         if self.uuidAction in event.data:
             self._state = event.data[self.uuidAction]
             request_update = True

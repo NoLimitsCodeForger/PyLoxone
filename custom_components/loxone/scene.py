@@ -7,7 +7,7 @@ https://github.com/JoDehli/PyLoxone
 
 import logging
 
-from homeassistant.components.scene import Scene
+from homeassistant.components.scene import Scene, DOMAIN as ENTITY_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import (AddEntitiesCallback,
@@ -20,6 +20,7 @@ from .const import (CONF_SCENE_GEN, CONF_SCENE_GEN_DELAY, DEFAULT_DELAY_SCENE,
                     DOMAIN, SENDDOMAIN)
 
 _LOGGER = logging.getLogger(__name__)
+ENTITY_ID_FORMAT = ENTITY_DOMAIN + ".{}"
 
 
 async def async_setup_platform(
@@ -70,6 +71,8 @@ async def async_setup_entry(
 
 
 class LoxoneLightScene(Scene):
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
+
     def __init__(self, name, mood_id, uuid, light_controller_id):
         self.name = name + "_" + str(mood_id)
         self.mood_id = mood_id

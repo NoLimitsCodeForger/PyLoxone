@@ -11,7 +11,8 @@ from typing import Any
 
 from homeassistant.components.cover import (ATTR_POSITION, ATTR_TILT_POSITION,
                                             CoverDeviceClass, CoverEntity,
-                                            CoverEntityFeature)
+                                            CoverEntityFeature,
+                                            ENTITY_ID_FORMAT)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant, callback
@@ -27,6 +28,7 @@ from .const import (SENDDOMAIN, SERVICE_DISABLE_SUN_AUTOMATION,
 from .helpers import (add_room_and_cat_to_value_values, get_all,
                       get_or_create_device, map_range)
 from .miniserver import get_miniserver_from_hass
+from .service.service_hub import add_service_hub_to_entity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,6 +57,7 @@ async def async_setup_entry(
 
     for cover in get_all(loxconfig, ["Jalousie", "Gate", "Window"]):
         cover = add_room_and_cat_to_value_values(loxconfig, cover)
+        cover = add_service_hub_to_entity(hass, cover)
         cover.update(
             {
                 "hass": hass,
@@ -101,6 +104,7 @@ async def async_setup_entry(
 
 class LoxoneGate(LoxoneEntity, CoverEntity):
     """Loxone Gate"""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -225,6 +229,8 @@ class LoxoneGate(LoxoneEntity, CoverEntity):
 
 
 class LoxoneWindow(LoxoneEntity, CoverEntity):
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
+
     # pylint: disable=no-self-use
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -326,6 +332,7 @@ class LoxoneWindow(LoxoneEntity, CoverEntity):
 
 class LoxoneJalousie(LoxoneEntity, CoverEntity):
     """Loxone Jalousie"""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     # pylint: disable=no-self-use
     def __init__(self, **kwargs):

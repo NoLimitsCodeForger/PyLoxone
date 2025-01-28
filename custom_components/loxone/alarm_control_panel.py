@@ -6,7 +6,7 @@ import re
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from homeassistant.components.alarm_control_panel import (
-    PLATFORM_SCHEMA, AlarmControlPanelEntity, AlarmControlPanelState)
+    PLATFORM_SCHEMA, AlarmControlPanelEntity, AlarmControlPanelState, ENTITY_ID_FORMAT)
 from homeassistant.components.alarm_control_panel.const import (
     AlarmControlPanelEntityFeature, CodeFormat)
 from homeassistant.config_entries import ConfigEntry
@@ -21,6 +21,7 @@ from .const import DOMAIN, EVENT, SECUREDSENDDOMAIN, SENDDOMAIN
 from .helpers import (add_room_and_cat_to_value_values, get_all,
                       get_or_create_device)
 from .miniserver import get_miniserver_from_hass
+from .service.service_hub import add_service_hub_to_entity
 
 DEFAULT_NAME = "Loxone Alarm"
 DEFAULT_FORCE_UPDATE = False
@@ -58,6 +59,7 @@ async def async_setup_entry(
     entities = []
     for loxone_alarm in get_all(loxconfig, "Alarm"):
         loxone_alarm = add_room_and_cat_to_value_values(loxconfig, loxone_alarm)
+        loxone_alarm = add_service_hub_to_entity(hass, loxone_alarm)
         loxone_alarm.update({"code": None})
         new_alarm = LoxoneAlarm(**loxone_alarm)
         hass.bus.async_listen(EVENT, new_alarm.event_handler)
@@ -68,6 +70,8 @@ async def async_setup_entry(
 
 
 class LoxoneAlarm(LoxoneEntity, AlarmControlPanelEntity):
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._state = 0.0

@@ -89,6 +89,29 @@ def add_room_and_cat_to_value_values(loxconfig: dict, sensor: dict):
     )
     return sensor
 
+def add_parent_data(entity: dict, parent_entity):
+    """
+    Add parent entity data to the given child entity.
+
+    This function updates the provided child entity dictionary by inheriting
+    specific attributes from the parent entity, such as name, room, category,
+    and device information. If an attribute is not present in the parent entity,
+    its value will be set to `None`.
+
+    :param entity: A dictionary representing the child entity to which the parent data will be added.
+    :param parent_entity: The parent entity object from which data will be inherited.
+    :return: The updated child entity dictionary with the inherited parent data.
+    """
+    entity.update(
+        {
+            "parent_name": getattr(parent_entity, "name", None),
+            "room": getattr(parent_entity, "room", None),
+            "cat": getattr(parent_entity, "cat", None),
+            # Inherit device information from the parent to the child
+            "_attr_device_info": getattr(parent_entity, "_attr_device_info", None),
+        }
+    )
+    return entity
 
 def get_miniserver_type(t):
     if t == 0:

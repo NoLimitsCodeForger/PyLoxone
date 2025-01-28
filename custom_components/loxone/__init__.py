@@ -45,7 +45,7 @@ from .const import (AES_KEY_SIZE, ATTR_AREA_CREATE, ATTR_CODE, ATTR_COMMAND,
                     DOMAIN_DEVICES, ERROR_VALUE, EVENT, IV_BYTES,
                     KEEP_ALIVE_PERIOD, LOXAPPPATH, LOXONE_PLATFORMS,
                     SALT_BYTES, SALT_MAX_AGE_SECONDS, SALT_MAX_USE_COUNT,
-                    SECUREDSENDDOMAIN, SENDDOMAIN, TIMEOUT, TOKEN_PERMISSION,
+                    SECUREDSENDDOMAIN, SENDDOMAIN, SERVICE_HUB, TIMEOUT, TOKEN_PERMISSION,
                     TOKEN_REFRESH_DEFAULT_SECONDS, TOKEN_REFRESH_RETRY_COUNT,
                     TOKEN_REFRESH_SECONDS_BEFORE_EXPIRY, cfmt)
 from .helpers import get_miniserver_type
@@ -235,6 +235,7 @@ async def async_setup_entry(hass, config_entry):
         return False
 
     hass.data[DOMAIN][miniserver.serial] = miniserver
+    hass.data[DOMAIN][SERVICE_HUB] = service_hub
 
     setup_tasks = []
 
@@ -541,6 +542,19 @@ class LoxoneEntity(Entity):
                     sys.exit(-1)
 
         self.listener = None
+
+        #Applying naming strategy for entity name and entity id
+        if hasattr(self, SERVICE_HUB):
+            self.service_hub = kwargs[SERVICE_HUB]
+
+            self._attr_name = self.service_hub.entity_naming_strategy_service.get_entity_name(self) or self._attr_name
+
+            if not self.entity_id and self.ENTITY_ID_FORMAT:
+                self.entity_id = self.service_hub.entity_naming_strategy_service.get_entity_id(self, self.ENTITY_ID_FORMAT)
+
+        # If there is a parent, we concatenate the parent and child names
+        if hasattr(self, "parent_name"):
+            self._attr_name = f"{self.parent_name}-{self._attr_name}"
 
     async def async_added_to_hass(self):
         """Subscribe to device events."""

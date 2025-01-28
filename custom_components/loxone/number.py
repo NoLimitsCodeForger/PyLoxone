@@ -7,12 +7,13 @@ https://github.com/JoDehli/PyLoxone
 
 import logging
 
-from homeassistant.components.number import NumberEntity
+from homeassistant.components.number import NumberEntity, ENTITY_ID_FORMAT
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from .service.service_hub import add_service_hub_to_entity
 
 from . import LoxoneEntity
 from .const import SENDDOMAIN
@@ -45,6 +46,7 @@ async def async_setup_entry(
 
     for number_entity in get_all(loxconfig, ["Slider"]):
         number_entity = add_room_and_cat_to_value_values(loxconfig, number_entity)
+        number_entity = add_service_hub_to_entity(hass, number_entity)
         new_number = LoxoneNumber(**number_entity)
         entities.append(new_number)
 
@@ -53,6 +55,7 @@ async def async_setup_entry(
 
 class LoxoneNumber(LoxoneEntity, NumberEntity):
     """Representation of a loxone number"""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

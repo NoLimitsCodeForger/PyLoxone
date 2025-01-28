@@ -6,12 +6,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .helpers import add_room_and_cat_to_value_values, get_all
+from .helpers import add_parent_data, add_room_and_cat_to_value_values, get_all
 from .lights.colorpickers import LumiTech, RGBColorPicker
 from .lights.dimmer import EIBDimmer, LoxoneDimmer
 from .lights.lightcontroller import LoxoneLightControllerV2
 from .lights.switch import LoxoneLightSwitch
 from .miniserver import get_miniserver_from_hass
+from .service.service_hub import add_service_hub_to_entity
 
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_NAME = "Loxone Light Controller V2"
@@ -67,6 +68,7 @@ async def async_setup_entry(
 
     for light_controller in get_all(loxconfig, "LightControllerV2"):
         light_controller = add_room_and_cat_to_value_values(loxconfig, light_controller)
+        light_controller = add_service_hub_to_entity(hass, light_controller)
         light_controller.update(
             {
                 "async_add_devices": async_add_entities,
@@ -84,11 +86,10 @@ async def async_setup_entry(
                     continue
                 sub_control = light_controller["subControls"][sub_control_uuid]
                 # Update for all entities
-                sub_control = add_room_and_cat_to_value_values(loxconfig, sub_control)
+                sub_control = add_parent_data(sub_control, new_light_controller)
+                sub_control = add_service_hub_to_entity(hass, sub_control)
                 sub_control.update(
                     {
-                        "lightcontroller_id": light_controller.get("uuidAction", None),
-                        "lightcontroller_name": light_controller.get("name", None),
                         "async_add_devices": async_add_entities,
                     }
                 )
@@ -111,7 +112,6 @@ async def async_setup_entry(
 
     for dimmer in dimmers + dimmers_without_light_controller:
         if "async_add_devices" not in dimmer:
-            dimmer = add_room_and_cat_to_value_values(loxconfig, dimmer)
             dimmer.update(
                 {
                     "async_add_devices": async_add_entities,

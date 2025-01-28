@@ -1,7 +1,7 @@
 from functools import cached_property
 from typing import Any
 
-from homeassistant.components.light import ColorMode, LightEntity
+from homeassistant.components.light import ColorMode, LightEntity, ENTITY_ID_FORMAT
 from homeassistant.const import STATE_UNKNOWN
 from homeassistant.helpers.entity import DeviceInfo, ToggleEntity
 
@@ -12,6 +12,7 @@ from ..helpers import get_or_create_device
 
 class LoxoneLightSwitch(LoxoneEntity, LightEntity):
     """Representation of a light switch."""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     _attr_color_mode = ColorMode.ONOFF
     _attr_supported_color_modes = {ColorMode.ONOFF}
@@ -21,19 +22,9 @@ class LoxoneLightSwitch(LoxoneEntity, LightEntity):
         self._attr_is_on = STATE_UNKNOWN
         self._attr_unique_id = self.uuidAction
         self._async_add_devices = kwargs["async_add_devices"]
-        self._light_controller_id = kwargs.get("lightcontroller_id", None)
-        self._light_controller_name = kwargs.get("lightcontroller_name", None)
 
-        self._name = self._attr_name
-        if self._light_controller_name:
-            self._attr_name = f"{self._light_controller_name}-{self._attr_name}"
-
-        if self._light_controller_id:
-            self.type = "LightControllerV2"
-            self._attr_device_info = get_or_create_device(
-                self._light_controller_id, self.name, self.type, self.room
-            )
-        else:
+        # In most common cases, the device is inherited from the parent LightController
+        if not self._attr_device_info:
             self.type = "Light"
             self._attr_device_info = get_or_create_device(
                 self.unique_id, self.name, self.type, self.room
@@ -46,8 +37,8 @@ class LoxoneLightSwitch(LoxoneEntity, LightEntity):
             "device_type": self.type,
             "platform": "loxone",
         }
-        if self._light_controller_name:
-            state_attributes.update({"light_controller": self._light_controller_name})
+        if self.parent_name:
+            state_attributes.update({"light_controller": self.parent_name})
 
         self._attr_extra_state_attributes = state_attributes
 

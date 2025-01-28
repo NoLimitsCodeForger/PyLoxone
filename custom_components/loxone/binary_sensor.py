@@ -9,7 +9,8 @@ import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from homeassistant.components.binary_sensor import (PLATFORM_SCHEMA,
                                                     BinarySensorDeviceClass,
-                                                    BinarySensorEntity)
+                                                    BinarySensorEntity,
+                                                    ENTITY_ID_FORMAT)
 from homeassistant.components.sensor import CONF_STATE_CLASS
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (CONF_DEVICE_CLASS, CONF_NAME,
@@ -25,6 +26,7 @@ from .const import CONF_ACTIONID, DOMAIN, SENDDOMAIN
 from .helpers import (add_room_and_cat_to_value_values, get_all,
                       get_or_create_device)
 from .miniserver import get_miniserver_from_hass
+from .service.service_hub import add_service_hub_to_entity
 
 _LOGGER = logging.getLogger(__name__)
 NEW_SENSOR = "binairy_sensors"
@@ -71,16 +73,19 @@ async def async_setup_entry(
 
     for sensor in get_all(loxconfig, "InfoOnlyDigital"):
         sensor = add_room_and_cat_to_value_values(loxconfig, sensor)
+        sensor = add_service_hub_to_entity(hass, sensor)
         sensor.update({"type": "digital"})
         entities.append(LoxoneDigitalSensor(**sensor))
 
     for sensor in get_all(loxconfig, "PresenceDetector"):
         sensor = add_room_and_cat_to_value_values(loxconfig, sensor)
+        sensor = add_service_hub_to_entity(hass, sensor)
         sensor.update({"type": "presence"})
         entities.append(LoxoneDigitalSensor(**sensor))
 
     for sensor in get_all(loxconfig, "SmokeAlarm"):
         sensor = add_room_and_cat_to_value_values(loxconfig, sensor)
+        sensor = add_service_hub_to_entity(hass, sensor)
         sensor.update({"type": "smoke"})
         entities.append(LoxoneDigitalSensor(**sensor))
 
@@ -100,6 +105,7 @@ async def async_setup_entry(
 
 class LoxoneDigitalSensor(LoxoneEntity, BinarySensorEntity):
     """Representation of a binary Loxone device."""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -207,6 +213,8 @@ class LoxoneDigitalSensor(LoxoneEntity, BinarySensorEntity):
 
 
 class LoxoneCustomBinarySensor(LoxoneEntity, BinarySensorEntity):
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._name = kwargs["name"]

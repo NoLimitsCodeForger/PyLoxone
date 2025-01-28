@@ -72,6 +72,8 @@ SENDDOMAIN = "loxone_send"
 SECUREDSENDDOMAIN = "loxone_send_secured"
 DEFAULT = ""
 
+SERVICE_HUB = "service_hub"
+
 ATTR_UUID = "uuid"
 
 ATTR_VALUE = "value"
@@ -86,7 +88,11 @@ CONF_SCENE_GEN = "generate_scenes"
 CONF_SCENE_GEN_DELAY = "generate_scenes_delay"
 CONF_LIGHTCONTROLLER_SUBCONTROLS_GEN = "generate_lightcontroller_subcontrols"
 CONF_LABEL_GEN = "generate_labels"
+CONF_ENTITY_NAME_PATTERN = "entity_name_pattern"
+CONF_ENTITY_ID_PATTERN = "entity_id_pattern"
 DEFAULT_FORCE_UPDATE = False
+DEFAULT_ENTITY_NAME_PATTERN = "<name>"
+DEFAULT_ENTITY_ID_PATTERN = "<room> <name>"
 
 SUPPORT_SUN_AUTOMATION = 1024
 SUPPORT_QUICK_SHADE = 2048
