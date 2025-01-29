@@ -7,6 +7,7 @@ https://github.com/JoDehli/PyLoxone
 
 import logging
 
+from .service.service_hub import add_service_hub_to_entity
 from homeassistant.components.scene import Scene, DOMAIN as ENTITY_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -15,6 +16,7 @@ from homeassistant.helpers.entity_platform import (AddEntitiesCallback,
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from functools import cached_property
+from . import LoxoneEntity
 
 from .const import (CONF_SCENE_GEN, CONF_SCENE_GEN_DELAY, DEFAULT_DELAY_SCENE,
                     DOMAIN, SENDDOMAIN)
@@ -52,15 +54,20 @@ async def async_setup_entry(
                 entity = hass.data["light"].get_entity(state.entity_id)
                 if entity.device_class == "LightControllerV2":
                     for effect in entity.effect_list:
-                        mood_id = entity.get_id_by_moodname(effect)
-                        uuid = entity.uuidAction
+                        scene = {}
+                        scene = add_service_hub_to_entity(hass, scene)
+                        scene.update(
+                            {
+                                "parent_name": entity.name,
+                                "name": effect,
+                                "room": entity.device_entry.area_id,
+                                "uuidAction": entity.uuidAction,
+                                "mood_id": entity.get_id_by_moodname(effect),
+                                "_attr_device_info": entity._attr_device_info,
+                            }
+                        )
                         scenes.append(
-                            LoxoneLightScene(
-                                "{}-{}".format(entity.name, effect),
-                                mood_id,
-                                uuid,
-                                "X",
-                            )
+                            LoxoneLightScene(**scene)
                         )
         async_add_entities(scenes)
 
@@ -70,20 +77,16 @@ async def async_setup_entry(
     return True
 
 
-class LoxoneLightScene(Scene):
+class LoxoneLightScene(LoxoneEntity, Scene):
     ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
-    def __init__(self, name, mood_id, uuid, light_controller_id):
-        self.name = name + "_" + str(mood_id)
-        self.mood_id = mood_id
-        self.uuidAction = uuid
-        self._light_controller_id = light_controller_id
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     @cached_property
     def unique_id(self) -> str:
         """Return a unique ID."""
-        _LOGGER.debug(f"name: {self.name}")
-        return self.name
+        return self.uuidAction + "/" + str(self.mood_id)
 
     def activate(self):
         """Activate scene. Try to get entities into requested state."""
