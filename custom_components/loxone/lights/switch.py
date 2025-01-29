@@ -20,7 +20,6 @@ class LoxoneLightSwitch(LoxoneEntity, LightEntity):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._attr_is_on = STATE_UNKNOWN
-        self._attr_unique_id = self.uuidAction
         self._async_add_devices = kwargs["async_add_devices"]
 
         # In most common cases, the device is inherited from the parent LightController
@@ -41,11 +40,6 @@ class LoxoneLightSwitch(LoxoneEntity, LightEntity):
             state_attributes.update({"light_controller": self.parent_name})
 
         self._attr_extra_state_attributes = state_attributes
-
-    @cached_property
-    def unique_id(self) -> str:
-        """Return a unique ID."""
-        return self._attr_unique_id
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         self.hass.bus.async_fire(SENDDOMAIN, dict(uuid=self.uuidAction, value="on"))

@@ -22,7 +22,6 @@ class LoxoneDimmer(LoxoneEntity, LightEntity):
         super().__init__(**kwargs)
         """Initialize the dimmer ."""
         self._attr_is_on = STATE_UNKNOWN
-        self._attr_unique_id = self.uuidAction
         self._position = 0.0
         self._step = 1
         self._min_uuid = kwargs.get("states", {}).get("min", None)
@@ -51,11 +50,6 @@ class LoxoneDimmer(LoxoneEntity, LightEntity):
             state_attributes.update({"light_controller": self.parent_name})
 
         self._attr_extra_state_attributes = state_attributes
-
-    @cached_property
-    def unique_id(self) -> str:
-        """Return a unique ID."""
-        return self._attr_unique_id
 
     async def async_turn_on(self, **kwargs) -> None:
         if ATTR_BRIGHTNESS in kwargs:

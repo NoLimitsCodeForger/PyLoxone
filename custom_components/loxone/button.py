@@ -59,12 +59,10 @@ class LoxoneButton(LoxoneEntity, ButtonEntity):
     ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
     __last_pressed_isoformat: str | None = None
-    _attr_unique_id: str | None = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._attr_icon = None
-        self._attr_unique_id = self.uuidAction
 
     @property
     def icon(self):
@@ -95,11 +93,6 @@ class LoxoneButton(LoxoneEntity, ButtonEntity):
                     request_update = True
         if request_update:
             self.async_schedule_update_ha_state()
-
-    @cached_property
-    def unique_id(self) -> str:
-        """Return a unique ID."""
-        return self._attr_unique_id
 
     def press(self, **kwargs):
         """Press the button."""

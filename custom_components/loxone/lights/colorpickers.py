@@ -29,7 +29,6 @@ class RGBColorPicker(LoxoneEntity, LightEntity):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         """Initialize the LumiTech."""
-        self._attr_unique_id = self.uuidAction
         self._attr_color_mode = ColorMode.UNKNOWN
         self._color_uuid = kwargs.get("states", {}).get("color", None)
         self._sequence_uuid = kwargs.get("states", {}).get("sequence", None)
@@ -42,11 +41,6 @@ class RGBColorPicker(LoxoneEntity, LightEntity):
             self._attr_device_info = get_or_create_device(
                 self._light_controller_id, self.name, self.type, self.room
             )
-
-    @cached_property
-    def unique_id(self) -> str:
-        """Return a unique ID."""
-        return self._attr_unique_id
 
     @property
     def is_on(self) -> bool:
