@@ -18,16 +18,18 @@ import urllib.request as req
 import uuid
 from base64 import b64encode
 from datetime import datetime
+from enum import Enum
 from math import floor
 from struct import unpack
 
 import httpx
-import websockets.legacy.client as wslib
+import websockets as wslib
 from Crypto.Cipher import AES, PKCS1_v1_5
 from Crypto.Hash import HMAC, SHA1, SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
 from Crypto.Util import Padding
+from websockets.protocol import State
 
 from .const import (AES_KEY_SIZE, CMD_AUTH_WITH_TOKEN, CMD_ENABLE_UPDATES,
                     CMD_ENCRYPT_CMD, CMD_GET_KEY, CMD_GET_KEY_AND_SALT,
@@ -41,6 +43,18 @@ from .const import (AES_KEY_SIZE, CMD_AUTH_WITH_TOKEN, CMD_ENABLE_UPDATES,
 
 _LOGGER = logging.getLogger(__name__)
 
+
+class MessageType(Enum):
+    TextMessage = 0
+    BinaryFile = 1
+    EventTableValueStates = 2
+    EventTableTextStates = 3
+    EventTableDaytimerStates = 4
+    OutOfService = 5
+    Keepalive = 6
+    EventTableWeatherStates = 7
+
+
 class LoxoneException(Exception):
     """Base class for all Loxone Exceptions"""
 
@@ -51,6 +65,49 @@ class LoxoneHTTPStatusError(LoxoneException):
 
 class LoxoneRequestError(Exception):
     """An exception raised during an http request"""
+
+
+def detect_encoding(byte_string):
+    encodings = [
+        "utf-8",
+        "iso-8859-1",
+        "ascii",
+        "utf-16",
+        "utf-32",
+        "latin-1",
+        "cp1252",
+        "mac-roman",
+        "big5",
+        "shift_jis",
+        "euc-jp",
+        "gb2312",
+    ]
+
+    for encoding in encodings:
+        try:
+            byte_string.decode(encoding)
+            return encoding
+        except (UnicodeDecodeError, AttributeError):
+            continue
+    return None
+
+
+def check_and_decode_if_needed(message):
+    if isinstance(message, bytes):
+        try:
+            return message.decode("utf-8")
+        except UnicodeDecodeError as e:
+            _LOGGER.info(
+                f"Decoding problem for message {message} (Type: {type(message)}) Try to get the encoding..."
+            )
+            encoding = detect_encoding(message)
+            if encoding:
+                return message.decode(encoding)
+            _LOGGER.info(
+                f"No vaild encoding found for {message} (Type: {type(message)}). Replaced all invaild characters."
+            )
+            return message.decode("utf-8", errors="replace")
+    return message
 
 
 async def raise_if_not_200(response: httpx.Response) -> None:
@@ -207,7 +264,7 @@ class LoxWs:
         self._public_key = None
         self._rsa_cipher = None
         self._session_key = None
-        self._ws = None
+        self._ws: wslib.ClientConnection | None = None
         self._current_message_type = None
         self._encryption_ready = False
         self._visual_hash = None
@@ -267,12 +324,7 @@ class LoxWs:
         command = "{}".format(CMD_GET_KEY)
         enc_command = await self.encrypt(command)
         await self._ws.send(enc_command)
-        try:
-            async with self._recv_lock:
-                message = await self._ws.recv()
-            # Handle the received message
-        except Exception as e:
-            raise e        
+        message = await self._ws.recv(decode=False)
         resp_json = json.loads(message)
         token_hash = None
 
@@ -302,12 +354,7 @@ class LoxWs:
 
             enc_command = await self.encrypt(command)
             await self._ws.send(enc_command)
-            try:
-                async with self._recv_lock:
-                    message = await self._ws.recv()
-                # Handle the received message
-            except Exception as e:
-                raise e            
+            message = await self._ws.recv(decode=False)
             resp_json = json.loads(message)
 
             _LOGGER.debug(
@@ -331,24 +378,7 @@ class LoxWs:
         ]
         for task in tasks:
             self.background_tasks.add(task)
-
-        done, pending = await asyncio.wait(
-            self.background_tasks, return_when=asyncio.FIRST_EXCEPTION
-        )
-
-        # Check if there are any exceptions
-        for task in done:
-            try:
-                await task  # Raise exception if occurred
-            except Exception as e:
-                self.state = ""
-                _LOGGER.debug(f"Exception caught: {e}")
-
-        for task in pending:
-            task.cancel()
-
-        if self.state != "STOPPING" and self.state != "CONNECTED":
-            await self.reconnect()
+            task.add_done_callback(self.background_tasks.discard)
 
     async def reconnect(self) -> None:
         """Reconnect the websocket."""
@@ -387,7 +417,7 @@ class LoxWs:
                     except asyncio.CancelledError:
                         _LOGGER.debug(f"Task {task.get_name()} was cancelled")
             self.state = "STOPPING"
-            if not self._ws.closed:
+            if not self._ws.state is State.CLOSED:
                 await self._ws.close()
             return 1
         except Exception as e:
@@ -400,7 +430,8 @@ class LoxWs:
                 await asyncio.sleep(second)
                 if self._encryption_ready:
                     async with asyncio.Lock():
-                        await self._ws.send("keepalive")
+                        if self._ws.state is State.OPEN:
+                            await self._ws.send("keepalive")
         except Exception as e:
             raise e
 
@@ -428,7 +459,9 @@ class LoxWs:
         command = "jdev/sps/ios/{}/{}/{}".format(
             digester.hexdigest(), device_uuid, value
         )
-        await self._ws.send(command)
+        async with asyncio.Lock():
+            if self._ws.state is State.OPEN:
+                await self._ws.send(command)
 
     async def send_secured__websocket_command(
         self, device_uuid: str, value: str, code: str
@@ -439,8 +472,10 @@ class LoxWs:
     async def send_websocket_command(self, device_uuid: str, value: str) -> None:
         """Send a websocket command to the Miniserver."""
         command = "jdev/sps/io/{}/{}".format(device_uuid, value)
-        _LOGGER.debug("Send command: {}".format(command))
-        await self._ws.send(command)
+        _LOGGER.debug("send command: {}".format(command))
+        async with asyncio.Lock():
+            if self._ws.state is State.OPEN:
+                await self._ws.send(command)
 
     async def async_init(self):
         # Get public key from Loxone
@@ -466,28 +501,19 @@ class LoxWs:
             else:
                 new_url = self._loxone_url.replace("http", "ws")
 
-            self._ws = await wslib.connect(
-                "{}/ws/rfc6455".format(new_url), timeout=TIMEOUT
+            self._ws: wslib.ClientConnection = await wslib.connect(
+                "{}/ws/rfc6455".format(new_url), open_timeout=TIMEOUT
             )
 
             await self._ws.send("{}{}".format(CMD_KEY_EXCHANGE, self._session_key))
 
-            try:
-                async with self._recv_lock:
-                    message = await self._ws.recv()
-            except Exception as e:
-                raise e
+            message = await self._ws.recv(decode=False)
             await self.parse_loxone_message(message)
             if self._current_message_type != 0:
                 _LOGGER.debug("Error getting the session key response")
                 return ERROR_VALUE
 
-            try:
-                async with self._recv_lock:
-                    message = await self._ws.recv()
-                # Handle the received message
-            except Exception as e:
-                raise e
+            message = await self._ws.recv(decode=False)
             resp_json = json.loads(message)
             if "LL" in resp_json:
                 if "Code" in resp_json["LL"]:
@@ -521,28 +547,18 @@ class LoxWs:
         if res is ERROR_VALUE:
             return ERROR_VALUE
 
-        if self._ws.closed:
+        if self._ws.state is State.CLOSED:
             _LOGGER.debug(f"Connection closed. Reason {self._ws.close_code}")
             return False
 
         command = "{}".format(CMD_ENABLE_UPDATES)
         enc_command = await self.encrypt(command)
         await self._ws.send(enc_command)
-        if self._ws.closed:
+        if self._ws.state is State.CLOSED:
             _LOGGER.debug(f"Connection closed. Reason {self._ws.close_code}")
             return False
-        try:
-            async with self._recv_lock:
-                message = await self._ws.recv()
-            # Handle the received message
-        except Exception as e:
-            raise e
-        try:
-            async with self._recv_lock:
-                message = await self._ws.recv()
-            # Handle the received message
-        except Exception as e:
-            raise e            
+        _ = await self._ws.recv(decode=False)
+        _ = await self._ws.recv(decode=False)
 
         self.state = "CONNECTED"
         return True
@@ -555,21 +571,16 @@ class LoxWs:
     async def ws_listen(self) -> None:
         try:
             while True:
-                try:
-                    async with self._recv_lock:
-                        message = await self._ws.recv()
-                    # Handle the received message
-                except Exception as e:
-                    raise e
+                message = await self._ws.recv(decode=False)
                 await self._async_process_message(message)
                 await asyncio.sleep(0)
         except Exception as e:
             _LOGGER.debug(f"ws_listen exception: {e}")
             await asyncio.sleep(5)
-            if self._ws.closed and self._ws.close_code in [4004, 4005]:
+            if self._ws.state is State.CLOSED and self._ws.close_code in [4004, 4005]:
                 self._token = LxToken()
 
-            elif self._ws.closed and self._ws.close_code:
+            elif self._ws.state is State.CLOSED and self._ws.close_code:
                 await self.reconnect()
             else:
                 raise e
@@ -577,19 +588,19 @@ class LoxWs:
     async def _async_process_message(self, message: str) -> None:
         if len(message) == 8:
             unpacked_data = unpack("ccccI", message)
-            self._current_message_type = int.from_bytes(
-                unpacked_data[1], byteorder="big"
+            self._current_message_type = MessageType(
+                int.from_bytes(unpacked_data[1], byteorder="big")
             )
-            if self._current_message_type == 6:
+            if self._current_message_type == MessageType.Keepalive:
                 _LOGGER.debug("Keep alive response received...")
         else:
             parsed_data = await self._parse_loxone_message(message)
-            # if parsed_data != {}:
-            #     _LOGGER.debug(
-            #         "message [type:{}]):{}".format(
-            #             self._current_message_type, parsed_data
-            #         )
-            #     )
+            if parsed_data != {}:
+                _LOGGER.debug(
+                    "message [{}]: {}".format(
+                        self._current_message_type.name, parsed_data
+                    ).strip()
+                )
 
             try:
                 resp_json = json.loads(parsed_data)
@@ -624,19 +635,23 @@ class LoxWs:
                                 )
 
             if self.message_call_back is not None:
-                if "LL" not in parsed_data and parsed_data != {}:
-                    await self.message_call_back(parsed_data)
+                try:
+                    if "LL" not in parsed_data and parsed_data != {}:
+                        await self.message_call_back(parsed_data)
+                except TypeError:
+                    _LOGGER.error(f"Error on incomming data: {parsed_data}")
             self._current_message_type = None
             await asyncio.sleep(0)
 
     async def _parse_loxone_message(self, message):
         """Parser of the Loxone message."""
         event_dict = {}
-        if self._current_message_type == 0:
+        if self._current_message_type == MessageType.TextMessage:
+            message = check_and_decode_if_needed(message)
             event_dict = message
-        elif self._current_message_type == 1:
+        elif self._current_message_type == MessageType.BinaryFile:
             pass
-        elif self._current_message_type == 2:
+        elif self._current_message_type == MessageType.EventTableValueStates:
             length = len(message)
             num = length / 24
             start = 0
@@ -652,8 +667,7 @@ class LoxWs:
                 event_dict[uuidstr] = value
                 start += 24
                 end += 24
-        elif self._current_message_type == 3:
-
+        elif self._current_message_type == MessageType.EventTableTextStates:
             start = 0
 
             def get_text(msg, head, offset):
@@ -662,7 +676,6 @@ class LoxWs:
                 event_uuid = uuid.UUID(bytes_le=msg[first:second])
                 first += offset
                 second += offset
-
                 icon_uuid_fields = event_uuid.urn.replace("urn:uuid:", "").split("-")
                 uuidstr = "{}-{}-{}-{}{}".format(
                     icon_uuid_fields[0],
@@ -691,16 +704,16 @@ class LoxWs:
                 second = first + text_length
                 message_str = unpack("{}s".format(text_length), msg[first:second])[0]
                 head += (floor((4 + text_length + 16 + 16 - 1) / 4) + 1) * 4
-                event_dict[uuidstr] = message_str.decode("utf-8")
+                event_dict[uuidstr] = check_and_decode_if_needed(message_str)
                 return head
 
             while start < len(message):
                 start = get_text(message, start, 16)
 
-        elif self._current_message_type == 6:
+        elif self._current_message_type == MessageType.Keepalive:
             event_dict["keep_alive"] = "received"
         else:
-            self._current_message_type = 7
+            self._current_message_type = MessageType.EventTableWeatherStates
         return event_dict
 
     async def use_token(self):
@@ -710,19 +723,9 @@ class LoxWs:
         command = "{}{}/{}".format(CMD_AUTH_WITH_TOKEN, token_hash, self._username)
         enc_command = await self.encrypt(command)
         await self._ws.send(enc_command)
-        try:
-            async with self._recv_lock:
-                message = await self._ws.recv()
-            # Handle the received message
-        except Exception as e:
-            raise e
+        message = await self._ws.recv(decode=False)
         await self.parse_loxone_message(message)
-        try:
-            async with self._recv_lock:
-                message = await self._ws.recv()
-            # Handle the received message
-        except Exception as e:
-            raise e
+        message = await self._ws.recv(decode=False)
         resp_json = json.loads(message)
         if "LL" in resp_json:
             if "code" in resp_json["LL"]:
@@ -740,19 +743,9 @@ class LoxWs:
             command = "{}".format(CMD_GET_KEY)
             enc_command = await self.encrypt(command)
             await self._ws.send(enc_command)
-            try:
-                async with self._recv_lock:
-                    message = await self._ws.recv()
-                # Handle the received message
-            except Exception as e:
-                raise e
+            message = await self._ws.recv(decode=False)
             await self.parse_loxone_message(message)
-            try:
-                async with self._recv_lock:
-                    message = await self._ws.recv()
-                # Handle the received message
-            except Exception as e:
-                raise e
+            message = await self._ws.recv(decode=False)
             resp_json = json.loads(message)
             if "LL" in resp_json:
                 if "value" in resp_json["LL"]:
@@ -792,20 +785,10 @@ class LoxWs:
             return ERROR_VALUE
 
         await self._ws.send(enc_command)
-        try:
-            async with self._recv_lock:
-                message = await self._ws.recv()
-            # Handle the received message
-        except Exception as e:
-            raise e
+        message = await self._ws.recv(decode=False)
         await self.parse_loxone_message(message)
 
-        try:
-            async with self._recv_lock:
-                message = await self._ws.recv()
-            # Handle the received message
-        except Exception as e:
-            raise e
+        message = await self._ws.recv(decode=False)
 
         key_and_salt = LxJsonKeySalt()
         key_and_salt.read_user_salt_responce(message)
@@ -832,19 +815,9 @@ class LoxWs:
 
         enc_command = await self.encrypt(command)
         await self._ws.send(enc_command)
-        try:
-            async with self._recv_lock:
-                message = await self._ws.recv()
-            # Handle the received message
-        except Exception as e:
-            raise e
+        message = await self._ws.recv(decode=False)
         await self.parse_loxone_message(message)
-        try:
-            async with self._recv_lock:
-                message = await self._ws.recv()
-            # Handle the received message
-        except Exception as e:
-            raise e
+        message = await self._ws.recv(decode=False)
 
         resp_json = json.loads(message)
         if "LL" in resp_json:

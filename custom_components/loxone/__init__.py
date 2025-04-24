@@ -475,7 +475,7 @@ async def async_setup_entry(hass, config_entry):
             },
         )
         _LOGGER.debug("Start Loxone MS")
-        hass.loop.create_task(miniserver.start_loxone())
+        await miniserver.start_loxone()
 
     async def stop_event(event):
         token = miniserver.api.token_as_dict
