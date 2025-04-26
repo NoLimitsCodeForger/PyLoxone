@@ -183,6 +183,11 @@ async def async_setup_entry(
         sensor = add_service_hub_to_entity(hass, sensor)
         entities.append(LoxoneTextSensor(**sensor))
 
+    for sensor in get_all(loxconfig, "TextState"):
+        sensor = add_room_and_cat_to_value_values(loxconfig, sensor)
+        sensor = add_service_hub_to_entity(hass, sensor)
+        entities.append(LoxoneStateSensor(**sensor))
+
     @callback
     def async_add_sensors(_):
         async_add_entities(_, True)
@@ -297,6 +302,46 @@ class LoxoneTextSensor(LoxoneEntity, SensorEntity):
             "category": self.cat,
         }
 
+class LoxoneStateSensor(LoxoneEntity, SensorEntity):
+    """Representation of a TextState Sensor."""
+    ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._state = STATE_UNKNOWN
+        self._attr_icon = "mdi:information-variant-circle"
+        self._native_value = ""
+        
+        self.type = "TextState"
+        self._attr_device_info = get_or_create_device(
+            self.unique_id, self.name, self.type, self.room
+        )
+
+    async def event_handler(self, e):       
+        if self.uuidAction in e.data:
+            data = e.data[self.uuidAction]
+            self._native_value = data
+            self.async_write_ha_state()
+
+    @property
+    def device_class(self):
+        """Return the class of this device, from component DEVICE_CLASSES."""
+        return self.type
+
+    @property
+    def native_value(self):
+        """Return the state of the sensor."""
+        return self._native_value
+
+    @property
+    def extra_state_attributes(self):
+        """Return device specific state attributes."""
+        return {
+            "uuid": self.uuidAction,
+            "device_type": self.type,
+            "platform": "loxone",
+            "category": self.cat,
+        }
 
 class LoxoneSensor(LoxoneEntity, SensorEntity):
     """Representation of a Loxone Sensor."""
