@@ -40,16 +40,12 @@ class LoxoneDimmer(LoxoneEntity, LightEntity):
             )
 
         state_attributes = {
-            "uuid": self.uuidAction,
-            "room": self.room,
-            "category": self.cat,
             "device_type": self.type,
-            "platform": "loxone",
         }
         if self.parent_name:
             state_attributes.update({"light_controller": self.parent_name})
 
-        self._attr_extra_state_attributes = state_attributes
+        self._attr_extra_state_attributes.update(state_attributes)
 
     async def async_turn_on(self, **kwargs) -> None:
         if ATTR_BRIGHTNESS in kwargs:

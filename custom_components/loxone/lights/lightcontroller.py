@@ -101,10 +101,11 @@ class LoxoneLightControllerV2(LoxoneEntity, LightEntity):
                     effect_ids.append(mood_id)
 
             self.hass.bus.async_fire(
-                SENDDOMAIN, dict(uuid=self.uuidAction, value="plus")
+                SENDDOMAIN,
+                dict(uuid=self.uuidAction, value="changeTo/{}".format(effect_ids[0])),
             )
 
-            for _ in effect_ids:
+            for _ in effect_ids[1:]:
                 self.hass.bus.async_fire(
                     SENDDOMAIN,
                     dict(uuid=self.uuidAction, value="addMood/{}".format(_)),
@@ -168,12 +169,12 @@ class LoxoneLightControllerV2(LoxoneEntity, LightEntity):
         Implemented by platform classes.
         """
         return {
-            "uuid": self.uuidAction,
-            "room": self.room,
-            "category": self.cat,
+            **self._attr_extra_state_attributes,
             "selected_scene": self.effect,
+            "selected_scenes": [
+                self.get_moodname_by_id(id) for id in self._active_moods
+            ],
             "device_type": self.type,
-            "platform": "loxone",
             "subcontrols": self._sub_controls,
         }
 

@@ -221,10 +221,8 @@ class LoxoneGate(LoxoneEntity, CoverEntity):
         Implemented by platform classes.
         """
         return {
-            "uuid": self.uuidAction,
+            **self._attr_extra_state_attributes,
             "device_type": self.type,
-            "category": self.cat,
-            "platform": "loxone",
         }
 
 
@@ -273,11 +271,8 @@ class LoxoneWindow(LoxoneEntity, CoverEntity):
         Implemented by platform classes.
         """
         device_att = {
-            "uuid": self.uuidAction,
+            **self._attr_extra_state_attributes,
             "device_type": self.type,
-            "platform": "loxone",
-            "room": self.room,
-            "category": self.cat,
         }
         return device_att
 
@@ -346,6 +341,7 @@ class LoxoneJalousie(LoxoneEntity, CoverEntity):
         self._position = 0
         self._position_loxone = -1
         self._tilt_position_loxone = 1
+        self._target_position = None
         self._set_position = None
         self._set_tilt_position = None
         self._tilt_position = None
@@ -408,6 +404,7 @@ class LoxoneJalousie(LoxoneEntity, CoverEntity):
             or self.states["down"] in e.data
             or self.states["autoInfoText"] in e.data
             or self.states["autoState"] in e.data
+            or (self._is_automatic and self.states["targetPosition"] in e.data)
         ):
             if self.states["position"] in e.data:
                 self._position_loxone = float(e.data[self.states["position"]]) * 100.0
@@ -424,6 +421,13 @@ class LoxoneJalousie(LoxoneEntity, CoverEntity):
                 )
                 self._tilt_position = map_range(
                     self._tilt_position_loxone, 0, 100, 100, 0
+                )
+            if self._is_automatic and self.states["targetPosition"] in e.data:
+                target_position_loxone = (
+                    float(e.data[self.states["targetPosition"]]) * 100.0
+                )
+                self._target_position = map_range(
+                    target_position_loxone, 0, 100, 100, 0
                 )
 
             if self.states["up"] in e.data:
@@ -471,6 +475,10 @@ class LoxoneJalousie(LoxoneEntity, CoverEntity):
     def is_opening(self):
         """Return if the cover is opening."""
         return self._is_opening
+
+    @property
+    def target_position(self):
+        return self._target_position
 
     @property
     def device_class(self) -> CoverDeviceClass | None:
@@ -524,11 +532,8 @@ class LoxoneJalousie(LoxoneEntity, CoverEntity):
         Implemented by platform classes.
         """
         device_att = {
-            "uuid": self.uuidAction,
+            **self._attr_extra_state_attributes,
             "device_type": self.type,
-            "platform": "loxone",
-            "room": self.room,
-            "category": self.cat,
             "current_position": self.current_cover_position,
             "current_shade_mode": self.shade_postion_as_text,
             "current_position_loxone_style": round(self._position_loxone, 0),
@@ -540,6 +545,7 @@ class LoxoneJalousie(LoxoneEntity, CoverEntity):
                     "automatic_text": self._auto_text,
                     "auto_state": self.auto,
                     "is_sun_automation_enabled": self.is_sun_automation_enabled,
+                    "target_position": self.target_position,
                 }
             )
 

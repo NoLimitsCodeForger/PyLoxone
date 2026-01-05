@@ -11,8 +11,7 @@ from .service.service_hub import add_service_hub_to_entity
 from homeassistant.components.scene import Scene, DOMAIN as ENTITY_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import (AddEntitiesCallback,
-                                                   async_call_later)
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from functools import cached_property
@@ -40,39 +39,64 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Scenes."""
+    """Set up Scenes after all other platforms are loaded."""
     delay_scene = config_entry.options.get(CONF_SCENE_GEN_DELAY, DEFAULT_DELAY_SCENE)
     create_scene = config_entry.options.get(CONF_SCENE_GEN, False)
 
-    async def gen_scenes(_):
-        scenes = []
-        entity_ids = hass.states.async_entity_ids("LIGHT")
-        for _ in entity_ids:
-            state = hass.states.get(_)
-            att = state.attributes
-            if "platform" in att and att["platform"] == DOMAIN:
-                entity = hass.data["light"].get_entity(state.entity_id)
-                if entity.device_class == "LightControllerV2":
-                    for effect in entity.effect_list:
-                        scene = {}
-                        scene = add_service_hub_to_entity(hass, scene)
-                        scene.update(
-                            {
-                                "parent_name": entity.name,
-                                "name": effect,
-                                "room": entity.device_entry.area_id,
-                                "uuidAction": entity.uuidAction,
-                                "mood_id": entity.get_id_by_moodname(effect),
-                                "_attr_device_info": entity._attr_device_info,
-                            }
-                        )
-                        scenes.append(
-                            LoxoneLightScene(**scene)
-                        )
-        async_add_entities(scenes)
+    if not create_scene:
+        return True
 
-    if create_scene:
-        async_call_later(hass, delay_scene, gen_scenes)
+    async def gen_scenes():
+        """Generate scenes from light entities."""
+        _LOGGER.debug("Loading scenes...")
+        scenes = []
+
+        # Wait for light platform to be ready
+        if "light" not in hass.data:
+            _LOGGER.warning("Light platform not ready, skipping scene generation")
+            return
+
+        entity_ids = hass.states.async_entity_ids("light")
+
+        for entity_id in entity_ids:
+            state = hass.states.get(entity_id)
+            if not state:
+                continue
+
+            att = state.attributes
+
+            if att.get("platform") != DOMAIN:
+                continue
+
+            entity = hass.data["light"].get_entity(entity_id)
+            if not entity or entity.device_class != "LightControllerV2":
+                continue
+
+            for effect in entity.effect_list:
+                scene = {}
+                scene = add_service_hub_to_entity(hass, scene)
+                scene.update(
+                    {
+                        "parent_name": entity.name,
+                        "name": effect,
+                        "room": entity.device_entry.area_id,
+                        "uuidAction": entity.uuidAction,
+                        "mood_id": entity.get_id_by_moodname(effect),
+                        "_attr_device_info": entity._attr_device_info,
+                    }
+                )
+                scenes.append(
+                    LoxoneLightScene(**scene)
+                )
+
+        if scenes:
+            async_add_entities(scenes)
+            _LOGGER.info(f"Generated {len(scenes)} scenes")
+        else:
+            _LOGGER.warning("No scenes generated")
+
+    # Wait for platforms to be ready and then generate scenes
+    hass.loop.call_later(delay_scene, lambda: hass.async_create_task(gen_scenes()))
 
     return True
 
@@ -80,7 +104,10 @@ async def async_setup_entry(
 class LoxoneLightScene(LoxoneEntity, Scene):
     ENTITY_ID_FORMAT = ENTITY_ID_FORMAT
 
+    """Representation of a Loxone light scene."""
+
     def __init__(self, **kwargs):
+        """Initialize the scene."""
         super().__init__(**kwargs)
 
     @cached_property
@@ -88,9 +115,9 @@ class LoxoneLightScene(LoxoneEntity, Scene):
         """Return a unique ID."""
         return self.uuidAction + "/" + str(self.mood_id)
 
-    def activate(self):
+    async def async_activate(self, **kwargs):
         """Activate scene. Try to get entities into requested state."""
-        self.hass.bus.fire(
+        self.hass.bus.async_fire(
             SENDDOMAIN,
-            dict(uuid=self.uuidAction, value="changeTo/{}".format(self.mood_id)),
+            {"uuid": self.uuidAction, "value": f"changeTo/{self.mood_id}"},
         )
