@@ -25,7 +25,7 @@ def add_service_hub_to_entity(hass, entity: dict):
     """
     entity.update(
         {
-            SERVICE_HUB: hass.data[DOMAIN][SERVICE_HUB]
+            SERVICE_HUB: hass.data[DOMAIN][list(hass.data[DOMAIN].keys())[0]].service_hub
         }
     )
 

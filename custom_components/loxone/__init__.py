@@ -47,7 +47,6 @@ from .pyloxone_api.exceptions import (LoxoneConnectionClosedOk,
                                       LoxoneServiceUnAvailableError,
                                       LoxoneTokenError,
                                       LoxoneUnauthorisedError)
-from .service.service_hub import ServiceHub
 
 REQUIREMENTS = ["websockets", "pycryptodome", "numpy"]
 
@@ -256,7 +255,6 @@ async def async_setup_entry(hass, config_entry):
     if not config_entry.options:
         await async_set_options(hass, config_entry)
 
-    service_hub = ServiceHub(hass, config_entry)
     coordinator = LoxoneCoordinator(hass, config_entry)
     host = config_entry.options.get(CONF_HOST)
 
@@ -310,7 +308,6 @@ async def async_setup_entry(hass, config_entry):
     )
 
     hass.data.setdefault(DOMAIN, {})[config_entry.entry_id] = coordinator
-    hass.data[DOMAIN][SERVICE_HUB] = service_hub
 
     setup_tasks = []
     await hass.config_entries.async_forward_entry_setups(config_entry, LOXONE_PLATFORMS)
@@ -325,7 +322,8 @@ async def async_setup_entry(hass, config_entry):
         await asyncio.wait(setup_tasks)
 
     # Adding labels after entities are loaded
-    await service_hub.label_service.update_labels_from_loxone_cat()
+    await coordinator.service_hub.label_service.update_labels_from_loxone_cat()
+
     async def _reload_after_delay(delay: float = 1.0) -> None:
         await coordinator.api.close()
         await asyncio.sleep(delay)

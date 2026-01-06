@@ -8,6 +8,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .miniserver import MiniServer
+from .service.service_hub import ServiceHub
 from .pyloxone_api.connection import LoxoneConnection, LoxoneException
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,6 +33,7 @@ class LoxoneCoordinator(DataUpdateCoordinator):
 
         self.api: LoxoneConnection | None = None
         self.miniserver: MiniServer | None = None
+        self.service_hub: ServiceHub
         self.listeners = []
 
     async def async_config_entry_first_refresh(self) -> None:
@@ -68,6 +70,8 @@ class LoxoneCoordinator(DataUpdateCoordinator):
         self.miniserver = MiniServer(
             self.hass, self.api.structure_file, self.config_entry
         )
+
+        self.service_hub = ServiceHub(self.hass, self.config_entry)
 
         return None
 
